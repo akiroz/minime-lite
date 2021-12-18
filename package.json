@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "iconv-lite": "^0.6.3",
+    "nestdb": "^2.0.0",
+    "stream-collect": "^2.2.0"
+  },
+  "devDependencies": {
+    "pkg": "^5.5.1"
+  }
+}
