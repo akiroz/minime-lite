@@ -1,6 +1,7 @@
 const https = require("https");
 const crypto = require("crypto");
 const zlib = require("zlib");
+const util = require("util");
 const collect = require('stream-collect');
 const { promises: fs } = require("fs");
 const { URLSearchParams } = require("url");
@@ -16,18 +17,20 @@ function signVal(val, id, key) {
     return crypto.sign("RSA-SHA1", buf, key).toString("hex");
 }
 
-export async function init() {
+async function init() {
     const billingKey = await fs.readFile("pki/billing.key");
-    https.createServer({
+    const srv = https.createServer({
         cert: await fs.readFile("pki/server.pem"),
         key: await fs.readFile("pki/server.key"),
     }, async (req, res) => {
+        console.log("[billing]", req.method, req.url);
         if(req.method !== "POST" || req.url !== "/request/") {
             return res.writeHead(404).end();
         }
-        const body = await collect(req.pipe(zlib.createInflate()), "ascii");
-        const keychipid = new URLSearchParams(body).get("keychipid");
-        const resp = new URLSearchParams({
+        const rawBody = await collect(req.pipe(zlib.createInflateRaw()), "ascii");
+        const body = new URLSearchParams(rawBody.split("\r\n")[0].trim())
+        const keychipid = body.get("keychipid");
+        const resp = {
             result: "0",
             waittime: "100",
             linelimit: "1",
@@ -40,9 +43,12 @@ export async function init() {
             fixlogcnt: "0",
             fixinterval: "5",
             playhistory: "000000/0:000000/0:000000/0",
-        });
-        res.writeHead(200, { "content-type": "text/plain" }).end(resp.toString());
-    }).listen(8443, () => {
-        console.log("[billing] listening on 8443");
+        };
+        const payload = Object.entries(resp).map(([k,v]) => `${k}=${v}`).join("&") + "\r\n";
+        res.writeHead(200, { "Content-Length": payload.length }).end(payload);
     });
+    await util.promisify(srv.listen.bind(srv))(8443);
+    console.log("[billing] listening on 8443");
 }
+
+module.exports = { init };
