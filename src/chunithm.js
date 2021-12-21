@@ -5,7 +5,7 @@ const collect = require('stream-collect');
 const Datastore = require('nestdb');
 const { DateTime } = require("luxon");
 const { CHARGE_IDS, EVENT_IDS } = require("./chunithmData");
-const registerDbHelpers = require("./chunithmDbHelper");
+const registerDbHelpers = require("./dbHelper");
 
 const db = Datastore({ filename: "data_chunithm.db" });
 registerDbHelpers(db);
