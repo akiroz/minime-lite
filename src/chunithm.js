@@ -238,11 +238,7 @@ async function init() {
         console.log("[chunithm]", req.method, req.url);
         try {
             const body = JSON.parse(await collect(req.pipe(zlib.createInflate()), "utf8"));
-            //console.log("[chunithm] req", body);
             const resp = await handler(req, body);
-            // if(!req.url.includes("GameEvent")) {
-            //     console.log("[chunithm] resp", resp);
-            // }
             const payload = zlib.deflateSync(JSON.stringify(resp || {}));
             res.writeHead(200, { "Content-Length": payload.length }).end(payload);
         } catch (err) {
