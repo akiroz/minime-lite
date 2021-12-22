@@ -10,23 +10,29 @@ module.exports = function (db) {
     db.queryOne = async function(schema, userId) {
         const _id = `${schema}-${userId}`;
         const doc = await db.findOneAsync({ _id });
-        return { userId, [schema]: doc || {} };
+        return { userId, [schema]: doc[schema] || {} };
     }
 
-    db.queryItems = async function(schema, userId, filter = {}) {
-        const docs = await db.findOneAsync({ schema, userId, [schema]: filter });
-        return { userId, [schema + "List"]: docs, length: String(docs.length) };
+    db.queryItems = async function(schema, userId, schemaFilter = undefined) {
+        const filter = schemaFilter ? { [schema]: schemaFilter } : {};
+        const docs = await db.findAsync({ schema, userId, ...filter });
+        return {
+            userId,
+            [schema + "List"]: docs.map(d => d[schema]),
+            length: String(docs.length)
+        };
     }
 
-    db.queryItemsPagination = async function(schema, body, filter = {}) {
+    db.queryItemsPagination = async function(schema, body, schemaFilter = undefined) {
         const { userId, nextIndex, maxCount } = body;
         const [off, lim] = [parseInt(nextIndex), parseInt(maxCount)];
-        const query = { schema, userId, [schema]: filter };
+        const filter = schemaFilter ? { [schema]: schemaFilter } : {};
+        const query = { schema, userId, ...filter };
         const cursor = db.find(query).sort({ ts: -1 }).skip(off).limit(lim);
         const docs = await util.promisify(cursor.exec.bind(cursor))();
         return {
             userId,
-            [schema + "List"]: docs,
+            [schema + "List"]: docs.map(d => d[schema]),
             length: String(docs.length),
             nextIndex: (docs.length < lim) ? "-1" : String(off + lim),
         };

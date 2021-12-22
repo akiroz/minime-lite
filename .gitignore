@@ -1,5 +1,6 @@
 .DS_Store
 *.db
+*.exe
 
 # Logs
 logs

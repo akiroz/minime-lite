@@ -9,6 +9,6 @@
     "pkg": "^5.5.1"
   },
   "scripts": {
-    "build": "pkg -t node16-win-x64 src/index.js"
+    "build": "pkg -t node16-win-x64 -o minime-lite.exe src/index.js"
   }
 }

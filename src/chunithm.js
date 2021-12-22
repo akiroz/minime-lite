@@ -107,8 +107,8 @@ async function handler(req, body) {
     else if (req.url.includes("GetUserItemApi")) {
         const { userId } = body;
         const limit = parseInt(body.maxCount);
-        const offset = parseInt(body.nextIndex.slice(0, -10));
-        const itemKind = parseInt(body.nextIndex.slice(-10)).toString();
+        const offset = parseInt(body.nextIndex.slice(-10));
+        const itemKind = parseInt(body.nextIndex.slice(0, -10)).toString();
         const query = { schema: "userItem", userId, userItem: { itemKind } };
         const cursor = db.find(query).sort({ ts: -1 }).skip(offset).limit(limit);
         const docs = await util.promisify(cursor.exec.bind(cursor))();
@@ -204,7 +204,6 @@ async function handler(req, body) {
     }
     else if (req.url.includes("UpsertUserAllApi")) {
         const { userId, upsertUserAll: payload } = body;
-        console.log("[chunithm]", payload);
         await db.upsertItems("userActivity", userId, payload, "id");
         await db.upsertItems("userCharacter", userId, payload, "characterId");
         await db.upsertItems("userCharge", userId, payload, "chargeId");
@@ -239,7 +238,11 @@ async function init() {
         console.log("[chunithm]", req.method, req.url);
         try {
             const body = JSON.parse(await collect(req.pipe(zlib.createInflate()), "utf8"));
+            //console.log("[chunithm] req", body);
             const resp = await handler(req, body);
+            // if(!req.url.includes("GameEvent")) {
+            //     console.log("[chunithm] resp", resp);
+            // }
             const payload = zlib.deflateSync(JSON.stringify(resp || {}));
             res.writeHead(200, { "Content-Length": payload.length }).end(payload);
         } catch (err) {
