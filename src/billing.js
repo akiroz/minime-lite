@@ -2,6 +2,7 @@ const https = require("https");
 const crypto = require("crypto");
 const zlib = require("zlib");
 const util = require("util");
+const path = require("path");
 const collect = require('stream-collect');
 const { promises: fs } = require("fs");
 const { URLSearchParams } = require("url");
@@ -18,10 +19,11 @@ function signVal(val, id, key) {
 }
 
 async function init() {
-    const billingKey = await fs.readFile("pki/billing.key");
+    
+    const billingKey = await fs.readFile(path.join(__dirname, '../pki/billing.key'));
     const srv = https.createServer({
-        cert: await fs.readFile("pki/server.pem"),
-        key: await fs.readFile("pki/server.key"),
+        cert: await fs.readFile(path.join(__dirname, '../pki/server.pem')),
+        key: await fs.readFile(path.join(__dirname, '../pki/server.key')),
     }, async (req, res) => {
         console.log("[billing]", req.method, req.url);
         if(req.method !== "POST" || req.url !== "/request/") {
