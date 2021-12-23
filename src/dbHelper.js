@@ -13,8 +13,11 @@ module.exports = function (db) {
         return { userId, [schema]: doc[schema] || {} };
     }
 
-    db.queryItems = async function(schema, userId, schemaFilter = undefined) {
-        const filter = schemaFilter ? { [schema]: schemaFilter } : {};
+    db.queryItems = async function(schema, userId, schemaFilter = {}) {
+        const filter = {};
+        Object.entries(schemaFilter).forEach(([k, v]) => {
+            filter[`${schema}.${k}`] = v;
+        });
         const docs = await db.findAsync({ schema, userId, ...filter });
         return {
             userId,
@@ -23,10 +26,13 @@ module.exports = function (db) {
         };
     }
 
-    db.queryItemsPagination = async function(schema, body, schemaFilter = undefined) {
+    db.queryItemsPagination = async function(schema, body, schemaFilter = {}) {
         const { userId, nextIndex, maxCount } = body;
         const [off, lim] = [parseInt(nextIndex), parseInt(maxCount)];
-        const filter = schemaFilter ? { [schema]: schemaFilter } : {};
+        const filter = {};
+        Object.entries(schemaFilter).forEach(([k, v]) => {
+            filter[`${schema}.${k}`] = v;
+        });
         const query = { schema, userId, ...filter };
         const cursor = db.find(query).sort({ ts: -1 }).skip(off).limit(lim);
         const docs = await util.promisify(cursor.exec.bind(cursor))();

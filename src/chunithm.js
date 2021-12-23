@@ -15,6 +15,7 @@ registerDbHelpers(db);
  */
 async function handler(req, body) {
     if (req.url.includes("GameLoginApi")) {
+        console.log("[chunithm] Login", body);
         return { returnCode: "1" };
     }
     else if (req.url.includes("GameLogoutApi")) {
@@ -109,12 +110,16 @@ async function handler(req, body) {
         const limit = parseInt(body.maxCount);
         const offset = parseInt(body.nextIndex.slice(-10));
         const itemKind = parseInt(body.nextIndex.slice(0, -10)).toString();
-        const query = { schema: "userItem", userId, userItem: { itemKind } };
+        const query = { schema: "userItem", userId, "userItem.itemKind": itemKind };
         const cursor = db.find(query).sort({ ts: -1 }).skip(offset).limit(limit);
         const docs = await util.promisify(cursor.exec.bind(cursor))();
         const packedIndex = itemKind + String(offset + limit).padStart(10, "0");
         const nextIndex = (docs.length < limit) ? "-1" : packedIndex;
-        return { userId, nextIndex, itemKind, userItemList: docs, length: String(docs.length) };
+        return {
+            userId, nextIndex, itemKind,
+            userItemList: docs.map(d => d.userItem),
+            length: String(docs.length)
+        };
     }
     else if (req.url.includes("GetUserLoginBonusApi")) {
         return { userId: body.userId, length: "0", userLoginBonus: [] };
@@ -154,10 +159,11 @@ async function handler(req, body) {
         const { userData } = await db.queryOne("userData", userId);
         if(!userData.userName) return {};
         const { userGameOption } = await db.queryOne("userGameOption", userId);
-        const userCharacter = await db.findOneAsync({
-            userId, schema: "userCharacter",
-            userCharacter: { characterId: userData.characterId }
-        });
+        const { userCharacter = {} } = await db.findOneAsync({
+            userId,
+            schema: "userCharacter",
+            "userCharacter.characterId": userData.characterId
+        }) || {};
         return {
             userId: "1",
             isLogin: "false",
@@ -204,6 +210,10 @@ async function handler(req, body) {
     }
     else if (req.url.includes("UpsertUserAllApi")) {
         const { userId, upsertUserAll: payload } = body;
+        payload.userData = payload.userData.map(({ userName, ...data }) => {
+            // Fix double-UTF8 encoded username
+            return { ...data, userName: Buffer.from(userName, "latin1").toString("utf8") };
+        });
         await db.upsertItems("userActivity", userId, payload, "id");
         await db.upsertItems("userCharacter", userId, payload, "characterId");
         await db.upsertItems("userCharge", userId, payload, "chargeId");
@@ -239,6 +249,10 @@ async function init() {
         try {
             const body = JSON.parse(await collect(req.pipe(zlib.createInflate()), "utf8"));
             const resp = await handler(req, body);
+            // if(req.url.includes("GetUser")) {
+            //     console.log("[chunithm] req", body);
+            //     console.log("[chunithm] resp", resp);
+            // }
             const payload = zlib.deflateSync(JSON.stringify(resp || {}));
             res.writeHead(200, { "Content-Length": payload.length }).end(payload);
         } catch (err) {
