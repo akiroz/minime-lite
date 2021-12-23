@@ -133,18 +133,21 @@ async function handler(req, body) {
             nextIndex,
         } = await db.queryItemsPagination("userMusicDetail", body);
         const group = {};
+        let userMusicList = [];
         for (const m of flat) {
-            if(group[m.musicId]) group[m.musicId].push(m);
-            else group[m.musicId] = [m];
+            if(group[m.musicId]) {
+                group[m.musicId].push(m);
+            } else {
+                group[m.musicId] = [m];
+                userMusicList.push(group[m.musicId]);
+            }
         }
-        const userMusicList = Object.values(group).map(g => ({
-            userMusicDetailList: g,
-            length: String(g.length),
-        }));
         return {
             userId: body.userId,
             nextIndex,
-            userMusicList,
+            userMusicList: userMusicList.map((group) => {
+                return { userMusicDetailList: group, length: String(group.length) }
+            }),
             length: String(userMusicList.length),
         };
     }

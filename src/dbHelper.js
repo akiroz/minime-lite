@@ -56,8 +56,8 @@ module.exports = function (db) {
     }
 
     db.upsertItems = async function(schema, userId, payload, idField) {
-        const ts = Date.now();
         for (let doc of payload[schema + "List"] || []) {
+            const ts = Date.now();
             const _id = `${schema}-${userId}-${doc[idField] || nanoid()}`;
             await db.updateAsync(
                 { _id },
