@@ -31,7 +31,7 @@ async function init() {
             country: "JPN",
             allnet_id: "456",
             client_timezone: "+0900",
-            utc_time: new Date().toISOString().substring(0, 19) + "Z",
+            utc_time: new Date().toISOString().substring(0, 19) + "Z", // Chop-off milliseconds
             setting: "",
             res_ver: "3",
             token: body.get("token"),

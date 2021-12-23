@@ -114,7 +114,11 @@ async function handler(req, body) {
         const docs = await util.promisify(cursor.exec.bind(cursor))();
         const packedIndex = itemKind + String(offset + limit).padStart(10, "0");
         const nextIndex = (docs.length < limit) ? "-1" : packedIndex;
-        return { userId, nextIndex, itemKind, userItemList: docs, length: String(docs.length) };
+        return {
+            userId, nextIndex, itemKind,
+            userItemList: docs.map(d => d.userItem),
+            length: String(docs.length)
+        };
     }
     else if (req.url.includes("GetUserLoginBonusApi")) {
         return { userId: body.userId, length: "0", userLoginBonus: [] };
@@ -154,8 +158,9 @@ async function handler(req, body) {
         const { userData } = await db.queryOne("userData", userId);
         if(!userData.userName) return {};
         const { userGameOption } = await db.queryOne("userGameOption", userId);
-        const userCharacter = await db.findOneAsync({
-            userId, schema: "userCharacter",
+        const { userCharacter } = await db.findOneAsync({
+            userId,
+            schema: "userCharacter",
             userCharacter: { characterId: userData.characterId }
         });
         return {
@@ -204,6 +209,10 @@ async function handler(req, body) {
     }
     else if (req.url.includes("UpsertUserAllApi")) {
         const { userId, upsertUserAll: payload } = body;
+        payload.userData = payload.userData.map(({ userName, ...data }) => {
+            // Fix double-UTF8 encoded username
+            return { ...data, userName: Buffer.from(userName, "latin1").toString("utf8") };
+        });
         await db.upsertItems("userActivity", userId, payload, "id");
         await db.upsertItems("userCharacter", userId, payload, "characterId");
         await db.upsertItems("userCharge", userId, payload, "chargeId");
@@ -238,6 +247,7 @@ async function init() {
         console.log("[chunithm]", req.method, req.url);
         try {
             const body = JSON.parse(await collect(req.pipe(zlib.createInflate()), "utf8"));
+            // TODO: fix last played difficulty
             const resp = await handler(req, body);
             const payload = zlib.deflateSync(JSON.stringify(resp || {}));
             res.writeHead(200, { "Content-Length": payload.length }).end(payload);
