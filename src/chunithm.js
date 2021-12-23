@@ -159,11 +159,11 @@ async function handler(req, body) {
         const { userData } = await db.queryOne("userData", userId);
         if(!userData.userName) return {};
         const { userGameOption } = await db.queryOne("userGameOption", userId);
-        const { userCharacter = {} } = await db.findOneAsync({
+        const characterDoc = await db.findOneAsync({
             userId,
             schema: "userCharacter",
             "userCharacter.characterId": userData.characterId
-        }) || {};
+        });
         return {
             userId: "1",
             isLogin: "false",
@@ -178,7 +178,7 @@ async function handler(req, body) {
             lastDataVersion: userData.lastDataVersion,
             lastPlayDate: userData.lastPlayDate,
             trophyId: userData.trophyId,
-            userCharacter,
+            userCharacter: characterDoc?.userCharacter || {},
             playerLevel: userGameOption.playerLevel,
             rating: userGameOption.rating,
             headphone: userGameOption.headphone,

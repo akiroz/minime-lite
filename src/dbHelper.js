@@ -10,7 +10,7 @@ module.exports = function (db) {
     db.queryOne = async function(schema, userId) {
         const _id = `${schema}-${userId}`;
         const doc = await db.findOneAsync({ _id });
-        return { userId, [schema]: doc[schema] || {} };
+        return { userId, [schema]: doc?.[schema] || {} };
     }
 
     db.queryItems = async function(schema, userId, schemaFilter = {}) {
