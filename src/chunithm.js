@@ -4,11 +4,12 @@ const zlib = require("zlib");
 const collect = require('stream-collect');
 const Datastore = require('nestdb');
 const { DateTime } = require("luxon");
-const { CHARGE_IDS, EVENT_IDS } = require("./chunithmData");
-const registerDbHelpers = require("./dbHelper");
 
-const db = Datastore({ filename: "data_chunithm.db" });
-registerDbHelpers(db);
+const { CHARGE_IDS, EVENT_IDS } = require("./chunithmData");
+const db = require('./dbHelper')(
+    Datastore({ filename: "minime_data_chunithm.db" })
+);
+
 
 /**
  * @param {http.IncomingMessage} req 

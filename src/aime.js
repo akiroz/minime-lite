@@ -4,9 +4,9 @@ const { promises: stream, Transform } = require("stream");
 const crypto = require("crypto");
 const Datastore = require('nestdb');
 
-const db = Datastore({ filename: "data_aime.db" });
-db.insertAsync = util.promisify(db.insert.bind(db));
-db.findOneAsync = util.promisify(db.findOne.bind(db));
+const db = require('./dbHelper')(
+    Datastore({ filename: "minime_data_aime.db" })
+);
 
 class Deframe extends Transform {
     buf = Buffer.alloc(0);

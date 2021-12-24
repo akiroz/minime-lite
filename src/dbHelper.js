@@ -1,7 +1,12 @@
-const util = require("util")
-const { nanoid } = require("nanoid");
+const util = require("util");
+const crypto = require("crypto");
+
+function randomId(n) {
+    return crypto.randomBytes(n).toString("base64");
+}
 
 module.exports = function (db) {
+    db.insertAsync = util.promisify(db.insert.bind(db));
     db.updateAsync = util.promisify(db.update.bind(db));
     db.findAsync = util.promisify(db.find.bind(db));
     db.findOneAsync = util.promisify(db.findOne.bind(db));
@@ -58,7 +63,7 @@ module.exports = function (db) {
     db.upsertItems = async function(schema, userId, payload, idField) {
         for (let doc of payload[schema + "List"] || []) {
             const ts = Date.now();
-            const _id = `${schema}-${userId}-${doc[idField] || nanoid()}`;
+            const _id = `${schema}-${userId}-${doc[idField] || randomId(12)}`;
             await db.updateAsync(
                 { _id },
                 { _id, ts, userId, schema, [schema]: doc },
@@ -66,4 +71,6 @@ module.exports = function (db) {
             );
         }
     }
+
+    return db;
 }

@@ -1,7 +1,6 @@
 {
   "dependencies": {
     "luxon": "^2.2.0",
-    "nanoid": "^3.1.30",
     "nestdb": "^2.0.0",
     "stream-collect": "^2.2.0"
   },
