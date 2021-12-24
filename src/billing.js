@@ -20,10 +20,10 @@ function signVal(val, id, key) {
 
 async function init() {
     
-    const billingKey = await fs.readFile(path.join(__dirname, '../pki/billing.key'));
+    const billingKey = await fs.readFile(path.join(__dirname, '../asset/billing.key'));
     const srv = https.createServer({
-        cert: await fs.readFile(path.join(__dirname, '../pki/server.pem')),
-        key: await fs.readFile(path.join(__dirname, '../pki/server.key')),
+        cert: await fs.readFile(path.join(__dirname, '../asset/server.pem')),
+        key: await fs.readFile(path.join(__dirname, '../asset/server.key')),
     }, async (req, res) => {
         console.log("[billing]", req.method, req.url);
         if(req.method !== "POST" || req.url !== "/request/") {

@@ -16,10 +16,12 @@ async function init() {
         const resp = {
             stat: 1,
             uri: ({
-                SBZV: `http://${serverAddr}:9000/`,
-                SDBT: `http://${serverAddr}:9001/`,
+                SBZV: `http://${serverAddr}:9000/`, // diva
+                SDBT: `http://${serverAddr}:9001/`, // chuni
+                SDDT: `http://${serverAddr}:9002/`, // ongeki
+                SDEY: `http://${serverAddr}:9003/`, // maimai
             }[body.get("game_id")] || ""),
-            host: "",
+            host: serverAddr,
             place_id: "123",
             name: "",
             nickname: "",

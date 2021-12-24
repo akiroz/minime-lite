@@ -1,22 +1,21 @@
 const http = require("http");
+const path = require("path");
 const util = require("util");
 const zlib = require("zlib");
+const { promises: fs } = require("fs");
 const collect = require('stream-collect');
 const Datastore = require('nestdb');
 const { DateTime } = require("luxon");
 
-const { CHARGE_IDS, EVENT_IDS } = require("./chunithmData");
 const db = require('./dbHelper')(
     Datastore({ filename: "minime_data_chunithm.db" })
 );
 
-
 /**
  * @param {http.IncomingMessage} req 
  */
-async function handler(req, body) {
+async function handler(ctx, req, body) {
     if (req.url.includes("GameLoginApi")) {
-        console.log("[chunithm] Login", body);
         return { returnCode: "1" };
     }
     else if (req.url.includes("GameLogoutApi")) {
@@ -24,12 +23,12 @@ async function handler(req, body) {
     }
     else if (req.url.includes("GetGameChargeApi")) {
         return {
-            length: CHARGE_IDS.length.toString(),
-            gameChargeList: CHARGE_IDS.map(({ id, price, salePrice }, i) => ({
-                chargeId: id.toString(),
-                orderId: (i + 1).toString(),
-                price: price.toString(),
-                salePrice: salePrice.toString(),
+            length: String(ctx.gameCharge.length),
+            gameChargeList: ctx.gameCharge.map(({ charge_id, order_id }) => ({
+                chargeId: charge_id,
+                orderId: order_id,
+                price: "1",
+                salePrice: "1",
                 startDate: "2017-12-05 07:00:00.0",
                 endDate: "2029-12-31 23:59:59.0",
                 saleStartDate: "2017-12-05 07:00:00.0",
@@ -38,12 +37,13 @@ async function handler(req, body) {
         };
     }
     else if (req.url.includes("GetGameEventApi")) {
+        const { type } = body;
         return {
-            type: body.type,
-            length: EVENT_IDS.length.toString(),
-            gameEventList: EVENT_IDS.map(id => ({
-                type: body.type,
-                id: id.toString(),
+            type,
+            length: String(ctx.gameEvent[type].length),
+            gameEventList: ctx.gameEvent[type].map(id => ({
+                id,
+                type,
                 startDate: "2017-12-05 07:00:00.0",
                 endDate: "2099-12-31 00:00:00.0",
             })),
@@ -74,7 +74,7 @@ async function handler(req, body) {
                 isBackgroundDistribute: "false",
                 maxCountCharacter: "300",
                 maxCountItem: "300",
-                maxCountMusic: "100",
+                maxCountMusic: "300",
             },
             isDumpUpload: "false",
             isAou: "true",
@@ -241,6 +241,8 @@ async function handler(req, body) {
         return { returnCode: "1" };
     }
     else if (req.url.includes("UpsertUserChargelogApi")) {
+        const { userId, userCharge } = body;
+        await db.upsertItems("userCharge", userId, { userChargeList: [userCharge] }, "chargeId");
         return { returnCode: "1" };
     }
     else {
@@ -249,19 +251,24 @@ async function handler(req, body) {
 }
 
 async function init() {
-    await util.promisify(db.load.bind(db))();
+    await db.loadAsync();
     await db.ensureIndexAsync({ fieldName: "userId" });
     await db.ensureIndexAsync({ fieldName: "schema" });
-    db.persistence.setAutocompactionInterval(60000);
+    db.persistence.setAutocompactionInterval(10 * 60000);
 
-    const debug = process.env.DEBUG;
-    if(debug) console.log("[chunithm] DEBUG", debug);
+    const debug = ["*", "chunithm"].includes(process.env.DEBUG);
+    if(debug) console.log("[chunithm] DEBUG");
+
+    const ctx = {
+        gameCharge: await fs.readFile(path.join(__dirname, '../asset/chunithmGameCharge.json')),
+        gameEvent: await fs.readFile(path.join(__dirname, '../asset/chunithmGameEvent.json')),
+    };
     
     const srv = http.createServer(async (req, res) => {
         console.log("[chunithm]", req.method, req.url);
         try {
             const body = JSON.parse(await collect(req.pipe(zlib.createInflate()), "utf8"));
-            const resp = await handler(req, body);
+            const resp = await handler(ctx, req, body);
             if(debug && (req.url.includes("GetUser") || req.url.includes("UpsertUser"))) {
                 console.log("[chunithm] req", body);
                 console.log("[chunithm] resp", resp);

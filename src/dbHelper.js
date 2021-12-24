@@ -6,6 +6,7 @@ function randomId(n) {
 }
 
 module.exports = function (db) {
+    db.loadAsync = util.promisify(db.load.bind(db));
     db.insertAsync = util.promisify(db.insert.bind(db));
     db.updateAsync = util.promisify(db.update.bind(db));
     db.findAsync = util.promisify(db.find.bind(db));

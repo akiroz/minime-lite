@@ -50,7 +50,7 @@ async function handler(msg) {
     const cmd = msg.readUInt16LE(4);
     if (cmd === 0x01) { // FeliCa Lookup
         const idm = msg.readBigInt64BE(0x0020);
-        console.log("[aime] FeliCa Lookup", { idm });
+        console.log("[aime] FeliCaLookup", { idm });
         return resp(0x30, 0x03, (buf) => {
             // Return a decimal representation for now.
             const accessCode = idm.toString().padStart(20, "0");
@@ -59,7 +59,7 @@ async function handler(msg) {
     }
     else if (cmd === 0x11) { // FeliCa Lookup 2
         const idm = msg.readBigInt64BE(0x0020);
-        console.log("[aime] FeliCa Lookup 2", { idm });
+        console.log("[aime] FeliCaLookup2", { idm });
         // Return a decimal representation for now.
         const accessCode = idm.toString().padStart(20, "0");
         const result = await db.findOneAsync({ _id: accessCode });
@@ -71,18 +71,18 @@ async function handler(msg) {
             buf.writeUInt16LE(0x0001, 0x37); // 0001
         });
     }
-    else if (cmd === 0x04) { // Mifare Lookup
+    else if (cmd === 0x04) { // Lookup
         const luid = msg.slice(0x0020, 0x002a).toString("hex");
-        console.log("[aime] Mifare Lookup", { luid });
+        console.log("[aime] Lookup", { luid });
         const result = await db.findOneAsync({ _id: luid });
         return resp(0x130, 0x06, (buf) => {
             buf.writeInt32LE(result?.aimeId || -1, 0x20);
             buf.writeUInt8(0, 0x24); // registerLevel = none
         });
     }
-    else if (cmd === 0x0f) { // Mifare Lookup 2
+    else if (cmd === 0x0f) { // Lookup 2
         const luid = msg.slice(0x0020, 0x002a).toString("hex");
-        console.log("[aime] Mifare Lookup 2", { luid });
+        console.log("[aime] Lookup 2", { luid });
         const result = await db.findOneAsync({ _id: luid });
         return resp(0x130, 0x10, (buf) => {
             buf.writeInt32LE(result?.aimeId || -1, 0x20);
@@ -119,8 +119,9 @@ async function handler(msg) {
 }
 
 async function init() {
-    await util.promisify(db.load.bind(db))();
-    db.persistence.setAutocompactionInterval(60000);
+    await db.loadAsync();
+    db.persistence.setAutocompactionInterval(10 * 60000);
+    
     const aesKey = Buffer.from("436f7079726967687428432953454741", "hex");
     const srv = net.createServer((socket) => {
         stream.pipeline(
