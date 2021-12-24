@@ -188,10 +188,14 @@ async function handler(req, body) {
         };
     }
     else if (req.url.includes("GetUserRecentPlayerApi")) {
-        return await db.queryItems("userRecentRating", body.userId);
+        const { userId } = body;
+        const { userRecentRating: l } = await db.queryOne("userRecentRating", userId, []);
+        return { userId, userRecentRatingList: l, length: String(l.length) };
     }
     else if (req.url.includes("GetUserRecentRatingApi")) {
-        return await db.queryItems("userRecentRating", body.userId);
+        const { userId } = body;
+        const { userRecentRating: l } = await db.queryOne("userRecentRating", userId, []);
+        return { userId, userRecentRatingList: l, length: String(l.length) };
     }
     else if (req.url.includes("GetUserRegionApi")) {
         return { userId: body.userId, length: "0", userRegionList: [] };
@@ -230,7 +234,9 @@ async function handler(req, body) {
         await db.upsertItems("userMap", userId, payload, "mapId");
         await db.upsertItems("userMusicDetail", userId, payload, "musicId");
         await db.upsertItems("userPlaylog", userId, payload);
-        await db.upsertItems("userRecentRating", userId, payload);        
+        await db.upsertOne("userRecentRating", userId, {
+            userRecentRating: [payload?.userRecentRatingList || []]
+        });
         return { returnCode: "1" };
     }
     else if (req.url.includes("UpsertUserChargelogApi")) {
@@ -247,15 +253,18 @@ async function init() {
     await db.ensureIndexAsync({ fieldName: "schema" });
     db.persistence.setAutocompactionInterval(60000);
 
+    const debug = process.env.DEBUG;
+    if(debug) console.log("[chunithm] DEBUG", debug);
+    
     const srv = http.createServer(async (req, res) => {
         console.log("[chunithm]", req.method, req.url);
         try {
             const body = JSON.parse(await collect(req.pipe(zlib.createInflate()), "utf8"));
             const resp = await handler(req, body);
-            // if(req.url.includes("GetUser")) {
-            //     console.log("[chunithm] req", body);
-            //     console.log("[chunithm] resp", resp);
-            // }
+            if(debug && (req.url.includes("GetUser") || req.url.includes("UpsertUser"))) {
+                console.log("[chunithm] req", body);
+                console.log("[chunithm] resp", resp);
+            }
             const payload = zlib.deflateSync(JSON.stringify(resp || {}));
             res.writeHead(200, { "Content-Length": payload.length }).end(payload);
         } catch (err) {

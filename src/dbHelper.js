@@ -7,10 +7,10 @@ module.exports = function (db) {
     db.findOneAsync = util.promisify(db.findOne.bind(db));
     db.ensureIndexAsync = util.promisify(db.ensureIndex.bind(db));
 
-    db.queryOne = async function(schema, userId) {
+    db.queryOne = async function(schema, userId, fallback = {}) {
         const _id = `${schema}-${userId}`;
         const doc = await db.findOneAsync({ _id });
-        return { userId, [schema]: doc?.[schema] || {} };
+        return { userId, [schema]: doc?.[schema] || fallback };
     }
 
     db.queryItems = async function(schema, userId, schemaFilter = {}) {
