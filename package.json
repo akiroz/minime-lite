@@ -5,6 +5,7 @@
     "stream-collect": "^2.2.0"
   },
   "devDependencies": {
+    "csv": "^6.0.4",
     "pkg": "^5.5.1"
   },
   "scripts": {

@@ -24,9 +24,9 @@ async function handler(ctx, req, body) {
     else if (req.url.includes("GetGameChargeApi")) {
         return {
             length: String(ctx.gameCharge.length),
-            gameChargeList: ctx.gameCharge.map(({ charge_id, order_id }) => ({
-                chargeId: charge_id,
-                orderId: order_id,
+            gameChargeList: ctx.gameCharge.map(({ chargeId, orderId }) => ({
+                chargeId,
+                orderId,
                 price: "1",
                 salePrice: "1",
                 startDate: "2017-12-05 07:00:00.0",
@@ -40,8 +40,8 @@ async function handler(ctx, req, body) {
         const { type } = body;
         return {
             type,
-            length: String(ctx.gameEvent[type].length),
-            gameEventList: ctx.gameEvent[type].map(id => ({
+            length: String(ctx.gameEvent.length),
+            gameEventList: ctx.gameEvent.map(({ id }) => ({
                 id,
                 type,
                 startDate: "2017-12-05 07:00:00.0",
@@ -188,12 +188,7 @@ async function handler(ctx, req, body) {
             headphone: userGameOption.headphone,
         };
     }
-    else if (req.url.includes("GetUserRecentPlayerApi")) {
-        const { userId } = body;
-        const { userRecentRating: l } = await db.queryOne("userRecentRating", userId, []);
-        return { userId, userRecentRatingList: l, length: String(l.length) };
-    }
-    else if (req.url.includes("GetUserRecentRatingApi")) {
+    else if (req.url.includes("GetUserRecentPlayerApi") || req.url.includes("GetUserRecentRatingApi")) {
         const { userId } = body;
         const { userRecentRating: l } = await db.queryOne("userRecentRating", userId, []);
         return { userId, userRecentRatingList: l, length: String(l.length) };
@@ -259,10 +254,7 @@ async function init() {
     const debug = ["*", "chunithm"].includes(process.env.DEBUG);
     if(debug) console.log("[chunithm] DEBUG");
 
-    const ctx = {
-        gameCharge: await fs.readFile(path.join(__dirname, '../asset/chunithmGameCharge.json')),
-        gameEvent: await fs.readFile(path.join(__dirname, '../asset/chunithmGameEvent.json')),
-    };
+    const ctx = await fs.readFile(path.join(__dirname, '../asset/chunithmData.json'));
     
     const srv = http.createServer(async (req, res) => {
         console.log("[chunithm]", req.method, req.url);

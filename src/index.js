@@ -7,6 +7,7 @@ if(process.platform === "win32" && !process.stdout.isTTY) {
         require("./allnet").init(),
         require("./aime").init(),
         require("./chunithm").init(),
+        require("./ongeki").init(),
     ]).then(() => {
         console.log("Startup OK");
     });
