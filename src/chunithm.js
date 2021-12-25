@@ -259,7 +259,7 @@ async function init() {
     const debug = ["*", "chunithm"].includes(process.env.DEBUG);
     if(debug) console.log("[chunithm] DEBUG");
 
-    const ctx = await fs.readFile(path.join(__dirname, '../asset/chunithmData.json'));
+    const ctx = JSON.parse(await fs.readFile(path.join(__dirname, '../asset/chunithmData.json')));
     
     const srv = http.createServer(async (req, res) => {
         console.log("[chunithm]", req.method, req.url);

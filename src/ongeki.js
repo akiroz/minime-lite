@@ -196,7 +196,7 @@ async function init() {
     const debug = ["*", "ongeki"].includes(process.env.DEBUG);
     if(debug) console.log("[ongeki] DEBUG");
 
-    const ctx = await fs.readFile(path.join(__dirname, '../asset/ongekiData.json'));
+    const ctx = JSON.parse(await fs.readFile(path.join(__dirname, '../asset/ongekiData.json')));
     
     const srv = http.createServer(async (req, res) => {
         console.log("[ongeki]", req.method, req.url);
