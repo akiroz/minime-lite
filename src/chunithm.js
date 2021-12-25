@@ -8,13 +8,14 @@ const Datastore = require('nestdb');
 const { DateTime } = require("luxon");
 
 const db = require('./dbHelper')(
-    Datastore({ filename: "minime_data_chunithm.db" })
+    Datastore({ filename: "minime_data_chunithm.db" }),
+    { stringMode: true }
 );
 
 /**
  * @param {http.IncomingMessage} req 
  */
-async function handler(ctx, req, body) {
+async function apiHandler(ctx, req, body) {
     if (req.url.includes("GameLoginApi")) {
         return { returnCode: "1" };
     }
@@ -260,13 +261,18 @@ async function init() {
     if(debug) console.log("[chunithm] DEBUG");
 
     const ctx = JSON.parse(await fs.readFile(path.join(__dirname, '../asset/chunithmData.json')));
-    
-    const srv = http.createServer(async (req, res) => {
+
+    /**
+     * @param {http.IncomingMessage} req
+     * @param {http.ServerResponse} res
+     */
+    async function httpHandler(req, res) {
+        if(!req.url.startsWith("/ChuniServlet")) return false;
         console.log("[chunithm]", req.method, req.url);
         try {
             const body = JSON.parse(await collect(req.pipe(zlib.createInflate()), "utf8"));
-            const resp = await handler(ctx, req, body);
-            if(debug && (req.url.includes("GetUser") || req.url.includes("UpsertUser"))) {
+            const resp = await apiHandler(ctx, req, body);
+            if(debug) {
                 console.log("[chunithm] req", body);
                 console.log("[chunithm] resp", resp);
             }
@@ -276,9 +282,10 @@ async function init() {
             console.warn("[chunithm] request error", err);
             res.writeHead(500).end();
         }
-    });
-    await util.promisify(srv.listen.bind(srv))(9001);
-    console.log("[chunithm] listening on 9001");
+        return true;
+    }
+
+    return httpHandler;
 }
 
 module.exports = { init };

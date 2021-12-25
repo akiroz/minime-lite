@@ -4,10 +4,11 @@ if(process.platform === "win32" && !process.stdout.isTTY) {
 } else {
     Promise.all([
         require("./billing").init(),
-        require("./allnet").init(),
         require("./aime").init(),
-        require("./chunithm").init(),
-        require("./ongeki").init(),
+        Promise.all([
+            require("./chunithm").init(),
+            require("./ongeki").init(),
+        ]).then(require("./allnet").init),
     ]).then(() => {
         console.log("Startup OK");
     });

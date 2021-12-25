@@ -30,7 +30,7 @@ function randomId(n) {
  *  upsertItems(schema: string, userId: string, payload: { [schemaList: string]: any[] }, isField: string): Promise<void>,
  * }}
  */
-module.exports = function (db) {
+module.exports = function (db, { stringMode = false } = {}) {
     db.loadAsync = util.promisify(db.load.bind(db));
     db.ensureIndexAsync = util.promisify(db.ensureIndex.bind(db));
     db.insertAsync = util.promisify(db.insert.bind(db));
@@ -49,14 +49,13 @@ module.exports = function (db) {
         Object.entries(opts.filter || {}).forEach(([k, v]) => {
             filter[`${schema}.${k}`] = v;
         });
-        const docs = await db.findAsync({ schema, userId, ...filter });
-        if(Number.isInteger(opts.limit) && docs.length > opts.limit) {
-            docs.splice(opts.limit - 1, docs.length - opts.limit);
-        }
+        const query = { schema, userId, ...filter };
+        const cursor = db.find(query).sort(opts.sort || { ts: -1 }).limit(opts.limit || Infinity);
+        const docs = await util.promisify(cursor.exec.bind(cursor))();
         return {
             userId,
             [schema + "List"]: docs.map(d => d[schema]),
-            length: String(docs.length)
+            length: stringMode ? String(docs.length) : docs.length,
         };
     }
 
@@ -70,11 +69,12 @@ module.exports = function (db) {
         const query = { schema, userId, ...filter };
         const cursor = db.find(query).sort({ ts: -1 }).skip(off).limit(lim);
         const docs = await util.promisify(cursor.exec.bind(cursor))();
+        const newNextIndex = (docs.length < lim) ? -1 : (off + lim);
         return {
             userId,
             [schema + "List"]: docs.map(d => d[schema]),
-            length: String(docs.length),
-            nextIndex: (docs.length < lim) ? "-1" : String(off + lim),
+            length: stringMode ? String(docs.length) : docs.length,
+            nextIndex: stringMode ? String(newNextIndex) : newNextIndex,
         };
     }
 

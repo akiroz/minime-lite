@@ -82,7 +82,7 @@ async function handler(msg) {
     }
     else if (cmd === 0x0f) { // Lookup 2
         const luid = msg.slice(0x0020, 0x002a).toString("hex");
-        console.log("[aime] Lookup 2", { luid });
+        console.log("[aime] Lookup2", { luid });
         const result = await db.findOneAsync({ _id: luid });
         return resp(0x130, 0x10, (buf) => {
             buf.writeInt32LE(result?.aimeId || -1, 0x20);
@@ -92,11 +92,18 @@ async function handler(msg) {
     else if (cmd === 0x05 || cmd === 0x0d) { // Register
         const luid = msg.slice(0x0020, 0x002a).toString("hex");
         console.log("[aime] Register", { luid });
-        const aimeId = crypto.randomBytes(4).readInt32LE();
-        await db.insertAsync({ _id: luid, aimeId });
-        return resp(0x30, 0x06, (buf) => {
-            buf.writeInt32LE(aimeId, 0x0020);
-        });
+        const existing = await db.findOneAsync({ _id: luid });
+        if(existing) {
+            return resp(0x30, 0x06, (buf) => {
+                buf.writeInt32LE(existing.aimeId, 0x20);
+            });
+        } else {
+            const aimeId = crypto.randomBytes(4).readInt32LE();
+            await db.insertAsync({ _id: luid, aimeId });
+            return resp(0x30, 0x06, (buf) => {
+                buf.writeInt32LE(aimeId, 0x20);
+            });
+        }
     }
     else if (cmd === 0x09) { // Log
         console.log("[aime] Log");
@@ -120,6 +127,7 @@ async function handler(msg) {
 
 async function init() {
     await db.loadAsync();
+    await db.ensureIndexAsync({ fieldName: "aimeId", unique: true });
     db.persistence.setAutocompactionInterval(10 * 60000);
     
     const aesKey = Buffer.from("436f7079726967687428432953454741", "hex");
