@@ -93,7 +93,7 @@ async function handler(ctx, req, body) {
     else if (req.url.includes("GetUserChargeApi")) {
         return await db.queryItems("userCharge", body.userId);
     }
-    else if (req.url.includes("GetUserCourseAPi")) {
+    else if (req.url.includes("GetUserCourseApi")) {
         return await db.queryItemsPagination("userCourse", body.userId);
     }
     else if (req.url.includes("GetUserDataApi")) {
