@@ -1,30 +1,58 @@
 const util = require("util");
 const crypto = require("crypto");
+const Datastore = require("nestdb");
 
 function randomId(n) {
     return crypto.randomBytes(n).toString("base64");
 }
 
+/**
+ * @param {Datastore} db
+ * @returns {{
+ *  loadAsync(): Promise<void>,
+ *  ensureIndexAsync(opt: Datastore.EnsureIndexOptions): Promise<void>
+ *  insertAsync<T>(doc: T): Promise<T>,
+ *  updateAsync<T>(q: any, u: any, opt: Datastore.UpdateOptions): Promise<number>,
+ *  findAsync(q: any): Promise<any[]>,
+ *  findOneAsync(q: any): Promise<any>,
+ *  queryOne(schema: string, userId: string, opts?: { default?: any }): Promise<{
+ *      userId: string, [schema: string]: any
+ *  }>,
+ *  queryItems(schema: string, userId: string, opts?: { filter?: any, limit?: number }): Promise<{
+ *      userId: string, [schemaList: string]: any
+ *  }>,
+ *  queryItemsPagination(schema: string, body: {
+ *      userId: string, nextIndex: string, maxCount: string
+ * }, opts?: { filter?: any }): Promise<{
+ *      userId: string, [schemaList: string]: any
+ *  }>,
+ *  upsertOne(schema: string, userId: string, payload: { [schema: string]: any[] }): Promise<void>,
+ *  upsertItems(schema: string, userId: string, payload: { [schemaList: string]: any[] }, isField: string): Promise<void>,
+ * }}
+ */
 module.exports = function (db) {
     db.loadAsync = util.promisify(db.load.bind(db));
+    db.ensureIndexAsync = util.promisify(db.ensureIndex.bind(db));
     db.insertAsync = util.promisify(db.insert.bind(db));
     db.updateAsync = util.promisify(db.update.bind(db));
     db.findAsync = util.promisify(db.find.bind(db));
     db.findOneAsync = util.promisify(db.findOne.bind(db));
-    db.ensureIndexAsync = util.promisify(db.ensureIndex.bind(db));
 
-    db.queryOne = async function(schema, userId, fallback = {}) {
+    db.queryOne = async function(schema, userId, opts = {}) {
         const _id = `${schema}-${userId}`;
         const doc = await db.findOneAsync({ _id });
-        return { userId, [schema]: doc?.[schema] || fallback };
+        return { userId, [schema]: doc?.[schema] || opts["default"] || {} };
     }
 
-    db.queryItems = async function(schema, userId, schemaFilter = {}) {
+    db.queryItems = async function(schema, userId, opts = {}) {
         const filter = {};
-        Object.entries(schemaFilter).forEach(([k, v]) => {
+        Object.entries(opts.filter || {}).forEach(([k, v]) => {
             filter[`${schema}.${k}`] = v;
         });
         const docs = await db.findAsync({ schema, userId, ...filter });
+        if(Number.isInteger(opts.limit) && docs.length > opts.limit) {
+            docs.splice(opts.limit - 1, docs.length - opts.limit);
+        }
         return {
             userId,
             [schema + "List"]: docs.map(d => d[schema]),
@@ -32,11 +60,11 @@ module.exports = function (db) {
         };
     }
 
-    db.queryItemsPagination = async function(schema, body, schemaFilter = {}) {
+    db.queryItemsPagination = async function(schema, body, opts = {}) {
         const { userId, nextIndex, maxCount } = body;
         const [off, lim] = [parseInt(nextIndex), parseInt(maxCount)];
         const filter = {};
-        Object.entries(schemaFilter).forEach(([k, v]) => {
+        Object.entries(opts.filter || {}).forEach(([k, v]) => {
             filter[`${schema}.${k}`] = v;
         });
         const query = { schema, userId, ...filter };

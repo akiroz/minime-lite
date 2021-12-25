@@ -1,6 +1,8 @@
 const http = require("http");
+const path = require("path");
 const util = require("util");
 const zlib = require("zlib");
+const { promises: fs } = require("fs");
 const collect = require('stream-collect');
 const Datastore = require('nestdb');
 const { DateTime } = require("luxon");
@@ -87,6 +89,14 @@ const db = require('./dbHelper')(
         return { length: "0", gameTechMusicList: [] };
     }
     else if (req.url.includes("GetUserActivityApi")) {
+        const { userId, kind } = body;
+        return {
+            kind,
+            ...( await db.queryItems("userActivity", userId, {
+                filter: { kind },
+                limit: { 1: 15, 2: 10 }[kind],
+            })),
+        };
     }
     else if (req.url.includes("GetUserBossApi")) {
     }
@@ -168,6 +178,7 @@ const db = require('./dbHelper')(
     }
     else if (req.url.includes("UpsertUserAllApi")) {
         const { userId, upsertUserAll: payload } = body;
+        await db.upsertItems("userActivity", userId, payload, "id");
         // TODO
         return { returnCode: "1", apiName: "upsertUserAll" };
     }
@@ -182,8 +193,8 @@ async function init() {
     await db.ensureIndexAsync({ fieldName: "schema" });
     db.persistence.setAutocompactionInterval(10 * 60000);
 
-    const debug = process.env.DEBUG;
-    if(debug) console.log("[ongeki] DEBUG", debug);
+    const debug = ["*", "ongeki"].includes(process.env.DEBUG);
+    if(debug) console.log("[ongeki] DEBUG");
 
     const ctx = await fs.readFile(path.join(__dirname, '../asset/ongekiData.json'));
     

@@ -82,7 +82,10 @@ async function handler(ctx, req, body) {
     }
     else if (req.url.includes("GetUserActivityApi")) {
         const { userId, kind } = body;
-        return { kind, ...(await db.queryItems("userActivity", userId, { kind })) };
+        return {
+            kind,
+            ...( await db.queryItems("userActivity", userId, { filter: { kind } }) )
+        };
     }
     else if (req.url.includes("GetUserCharacterApi")) {
         return await db.queryItemsPagination("userCharacter", body);
@@ -101,7 +104,9 @@ async function handler(ctx, req, body) {
     }
     else if (req.url.includes("GetUserDuelApi")) {
         const { userId, isAllDuel, duelId } = body;
-        return await db.queryItems("userDuel", userId, isAllDuel ? {} : { duelId });
+        return await db.queryItems("userDuel", userId, {
+            filter: isAllDuel ? {} : { duelId }
+        });
     }
     else if (req.url.includes("GetUserFavoriteMusicApi")) {
         return { userId: body.userId, length: "0", userFavoriteMusicList: [] };
@@ -190,7 +195,7 @@ async function handler(ctx, req, body) {
     }
     else if (req.url.includes("GetUserRecentPlayerApi") || req.url.includes("GetUserRecentRatingApi")) {
         const { userId } = body;
-        const { userRecentRating: l } = await db.queryOne("userRecentRating", userId, []);
+        const { userRecentRating: l } = await db.queryOne("userRecentRating", userId, { default: [] });
         return { userId, userRecentRatingList: l, length: String(l.length) };
     }
     else if (req.url.includes("GetUserRegionApi")) {
