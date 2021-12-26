@@ -19,12 +19,12 @@ function randomId(n) {
  *      userId: string, [schema: string]: any
  *  }>,
  *  queryItems(schema: string, userId: string, opts?: { filter?: any, limit?: number }): Promise<{
- *      userId: string, [schemaList: string]: any
+ *      userId: string, length: number, [schemaList: string]: any
  *  }>,
  *  queryItemsPagination(schema: string, body: {
  *      userId: string, nextIndex: string, maxCount: string
  * }, opts?: { filter?: any }): Promise<{
- *      userId: string, [schemaList: string]: any
+ *      userId: string, length: number, nextIndex: number, [schemaList: string]: any
  *  }>,
  *  upsertOne(schema: string, userId: string, payload: { [schema: string]: any[] }): Promise<void>,
  *  upsertItems(schema: string, userId: string, payload: { [schemaList: string]: any[] }, isField: string): Promise<void>,
@@ -61,7 +61,7 @@ module.exports = function (db, { stringMode = false } = {}) {
 
     db.queryItemsPagination = async function(schema, body, opts = {}) {
         const { userId, nextIndex, maxCount } = body;
-        const [off, lim] = [parseInt(nextIndex), parseInt(maxCount)];
+        const [off, lim] = stringMode ? [parseInt(nextIndex), parseInt(maxCount)] : [nextIndex, maxCount];
         const filter = {};
         Object.entries(opts.filter || {}).forEach(([k, v]) => {
             filter[`${schema}.${k}`] = v;
@@ -92,7 +92,8 @@ module.exports = function (db, { stringMode = false } = {}) {
     db.upsertItems = async function(schema, userId, payload, idField) {
         for (let doc of payload[schema + "List"] || []) {
             const ts = Date.now();
-            const _id = `${schema}-${userId}-${doc[idField] || randomId(12)}`;
+            let id = (idField instanceof Function)? idField(doc) : (doc[idField] || randomId(12));
+            const _id = `${schema}-${userId}-${id}`;
             await db.updateAsync(
                 { _id },
                 { _id, ts, userId, schema, [schema]: doc },

@@ -5,7 +5,6 @@ const zlib = require("zlib");
 const { promises: fs } = require("fs");
 const collect = require('stream-collect');
 const Datastore = require('nestdb');
-const { DateTime } = require("luxon");
 
 const db = require('./dbHelper')(
     Datastore({ filename: "minime_data_ongeki.db" })
@@ -64,15 +63,13 @@ const db = require('./dbHelper')(
         return { length: 0, gameRewardList: [] };
     }
     else if (req.url.includes("GetGameSettingApi")) {
-        const rebootStartTime = DateTime.now().minus({ hours: 3 });
-        const rebootEndTime = DateTime.now().minus({ hours: 2 });
         return {
             gameSetting: {
                 dataVersion: "1.05.00",
                 isMaintenance: false,
                 requestInterval: 10,
-                rebootStartTime: rebootStartTime.toFormat("yyyy-LL-dd HH:mm:ss"),
-                rebootEndTime: rebootEndTime.toFormat("yyyy-LL-dd HH:mm:ss"),
+                rebootStartTime: "2099-01-01 23:59:00.0",
+                rebootEndTime: "2099-01-01 23:59:00.0",
                 isBackgroundDistribute: false,
                 maxCountCharacter: 50,
                 maxCountCard: 300,
@@ -105,13 +102,13 @@ const db = require('./dbHelper')(
         return await db.queryItems("userBpBase", body.userId);
     }
     else if (req.url.includes("GetUserCardApi")) {
-        return await db.queryItemsPagination("userCard", body.userId);
+        return await db.queryItemsPagination("userCard", body);
     }
     else if (req.url.includes("GetUserChapterApi")) {
         return await db.queryItems("userChapter", body.userId);
     }
     else if (req.url.includes("GetUserCharacterApi")) {
-        return await db.queryItemsPagination("userCharacter", body.userId);
+        return await db.queryItemsPagination("userCharacter", body);
     }
     else if (req.url.includes("GetUserDataApi")) {
         return await db.queryOne("userData", body.userId);
@@ -129,41 +126,77 @@ const db = require('./dbHelper')(
         return { userId: body.userId, length: 0, userEventRankingList: [] };
     }
     else if (req.url.includes("GetUserItemApi")) {
-        // TODO
+        const { userId, maxCount, nextIndex: currIndex } = body;
+        const itemKind = parseInt(String(currIndex).slice(0, -10));
+        const { userItemList, length, nextIndex } = await db.queryItemsPagination(
+            "userItem",
+            { userId, maxCount, nextIndex: parseInt(String(currIndex).slice(-10)) },
+            { filter: { itemKind } }
+        );
+        return {
+            userId, itemKind, userItemList, length,
+            nextIndex: (nextIndex === -1) ? -1 : parseInt(String(itemKind) + String(nextIndex).padStart(10, "0")),
+        };
     }
     else if (req.url.includes("GetUserKopApi")) {
+        return await db.queryItems("userKop", body.userId);
     }
     else if (req.url.includes("GetUserLoginBonusApi")) {
+        return await db.queryItems("userLoginBonus", body.userId);
     }
     else if (req.url.includes("GetUserMissionPointApi")) {
+        return await db.queryItems("userMissionPoint", body.userId);
     }
     else if (req.url.includes("GetUserMusicApi")) {
+        const { userMusicDetailList: flat, nextIndex } = await db.queryItemsPagination("userMusicDetail", body);
+        const group = {};
+        let userMusicList = [];
+        for (const m of flat) {
+            if(group[m.musicId]) {
+                group[m.musicId].push(m);
+            } else {
+                group[m.musicId] = [m];
+                userMusicList.push(group[m.musicId]);
+            }
+        }
+        return {
+            userId: body.userId,
+            nextIndex,
+            userMusicList: userMusicList.map((group) => {
+                return { userMusicDetailList: group, length: group.length }
+            }),
+            length: userMusicList.length,
+        };
     }
     else if (req.url.includes("GetUserMusicItemApi")) {
+        return await db.queryItemsPagination("userMusicItem", body);
     }
     else if (req.url.includes("GetUserOptionApi")) {
+        return await db.queryOne("userOption", body.userId);
     }
     else if (req.url.includes("GetUserPreviewApi")) {
+        const { userData } = await db.queryOne("userData", body.userId);
+        const { userOption } = await db.queryOne("userOption", body.userId);
         return {
             userId: 0,
             isLogin: false,
-            lastLoginDate: null,
-            userName: "",
-            reincarnationNum: 0,
-            level: 0,
-            exp: 0,
-            playerRating: 0,
-            lastGameId: "",
-            lastRomVersion: "",
-            lastDataVersion: "",
-            lastPlayDate: null,
-            nameplateId: 0,
-            trophyId: 0,
-            cardId: 0,
-            dispPlayerLv: 0,
-            dispRating: 0,
-            dispBP: 0,
-            headphone: 0,
+            lastLoginDate: userData.lastPlayDate || null,
+            userName: userData.userName || "",
+            reincarnationNum: userData.reincarnationNum || 0,
+            level: userData.level || 0,
+            exp: userData.exp || 0,
+            playerRating: userData.playerRating || 0,
+            lastGameId: userData.lastGameId || "",
+            lastRomVersion: userData.lastRomVersion || "",
+            lastDataVersion: userData.lastDataVersion || "",
+            lastPlayDate: userData.lastPlayDate || null,
+            nameplateId: userData.nameplateId || 0,
+            trophyId: userData.trophyId || 0,
+            cardId: userData.cardId || 0,
+            dispPlayerLv: userOption.dispPlayerLv || 1,
+            dispRating: userOption.dispRating || 1,
+            dispBP: userOption.dispBP || 1,
+            headphone: userOption.headphone || 0,
             banStatus: 0,
             isWarningConfirmed: true,
             lastEmoneyBrand: 0,
@@ -174,16 +207,28 @@ const db = require('./dbHelper')(
         return { userId: body.userId, length: "0", userRatinglogList: [] };
     }
     else if (req.url.includes("GetUserRecentRatingApi")) {
+        const { userId } = body;
+        const { userRecentRating: l } = await db.queryOne("userRecentRating", userId, { default: [] });
+        return { userId, userRecentRatingList: l, length: l.length };
     }
     else if (req.url.includes("GetUserRegionApi")) {
+        return { userId: body.userId, length: 0, userRegionList: [] };
     }
     else if (req.url.includes("GetUserRivalApi") || req.url.includes("GetUserRivalDataApi")) {
+        return { userId: body.userId, length: 0, userRivalList: [] };
     }
     else if (req.url.includes("GetUserRivalMusicApi")) {
+        return {
+            userId: body.userId,
+            rivalUserId: body.rivalUserId,
+            length: 0, nextIndex: 0, userRivalMusicList: [],
+        };
     }
     else if (req.url.includes("GetUserScenarioApi")) {
+        return await db.queryItems("userScenario", body.userId);
     }
     else if (req.url.includes("GetUserStoryApi")) {
+        return await db.queryItems("userStory", body.userId);
     }
     else if (req.url.includes("GetUserTechCountApi")) {
         return { userId: body.userId, length: 0, userTechCountList: [] };
@@ -195,8 +240,13 @@ const db = require('./dbHelper')(
         return { userId: body.userId, length: 0, userTechEventRankingList: [] };
     }
     else if (req.url.includes("GetUserTradeItemApi")) {
+        const { userId, startChapterId, endChapterId } = body;
+        return await db.queryItems("userTradeItem", userId, {
+            filter: { chapterId: { $gte: startChapterId, $lte: endChapterId } }
+        });
     }
     else if (req.url.includes("GetUserTrainingRoomByKeyApi")) {
+        return await db.queryItems("userTrainingRoom", body.userId);
     }
     else if (req.url.includes("UpsertClientBookkeepingApi")) {
         return { returnCode: 1, apiName: "upsertClientBookkeeping" };
@@ -218,7 +268,6 @@ const db = require('./dbHelper')(
     }
     else if (req.url.includes("UpsertUserAllApi")) {
         const { userId, upsertUserAll: payload } = body;
-        console.log("[ongeki] upsertUserAll", payload);
         await db.upsertItems("userActivity", userId, {
             userActivityList: (payload.userActivityList || []).filter(a => a.id !== 0 && a.kind !== 0)
         }, "id");
@@ -229,25 +278,20 @@ const db = require('./dbHelper')(
         await db.upsertItems("userCharacter", userId, payload, "characterId");
         await db.upsertOne("userData", userId, payload);
         await db.upsertItems("userDeck", userId, payload, "deckId");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
-        await db.upsertItems("", userId, payload, "");
+        await db.upsertItems("userItem", userId, payload, (i) => `${i.itemKind}-${i.itemId}`);
+        await db.upsertItems("userKop", userId, payload, "kopId");
+        await db.upsertItems("userLoginBonus", userId, payload, "bonusId");
+        await db.upsertItems("userMissionPoint", userId, payload, "eventId");
+        await db.upsertItems("userMusicDetail", userId, payload, "musicId");
+        await db.upsertItems("userMusicItem", userId, payload, "musicId");
+        await db.upsertOne("userOption", userId, payload);
+        await db.upsertOne("userRecentRating", userId, {
+            userRecentRating: [payload?.userRecentRatingList || []]
+        });
+        await db.upsertItems("userScenario", userId, payload, "scenarioId");
+        await db.upsertItems("userStory", userId, payload, "storyId");
+        await db.upsertItems("userTradeItem", userId, payload, "tradeItemId");
+        await db.upsertItems("userTrainingRoom", userId, payload, "roomId");
         return { returnCode: 1, apiName: "upsertUserAll" };
     }
     else {
@@ -277,8 +321,8 @@ async function init() {
             const body = JSON.parse(await collect(req.pipe(zlib.createInflate()), "utf8"));
             const resp = await apiHandler(ctx, req, body);
             if(debug) {
-                console.log("[ongeki] req", body);
-                console.log("[ongeki] resp", resp);
+                console.log("[ongeki] req", util.inspect(body, false, null, true));
+                console.log("[ongeki] resp", util.inspect(resp, false, null, true));
             }
             const payload = zlib.deflateSync(JSON.stringify(resp || {}));
             res.writeHead(200, { "Content-Length": payload.length }).end(payload);

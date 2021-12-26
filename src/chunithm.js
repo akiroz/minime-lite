@@ -113,19 +113,16 @@ async function apiHandler(ctx, req, body) {
         return { userId: body.userId, length: "0", userFavoriteMusicList: [] };
     }
     else if (req.url.includes("GetUserItemApi")) {
-        const { userId } = body;
-        const limit = parseInt(body.maxCount);
-        const offset = parseInt(body.nextIndex.slice(-10));
-        const itemKind = parseInt(body.nextIndex.slice(0, -10)).toString();
-        const query = { schema: "userItem", userId, "userItem.itemKind": itemKind };
-        const cursor = db.find(query).sort({ ts: -1 }).skip(offset).limit(limit);
-        const docs = await util.promisify(cursor.exec.bind(cursor))();
-        const packedIndex = itemKind + String(offset + limit).padStart(10, "0");
-        const nextIndex = (docs.length < limit) ? "-1" : packedIndex;
+        const { userId, maxCount, nextIndex: currIndex } = body;
+        const itemKind = String(parseInt(currIndex.slice(0, -10)));
+        const { userItemList, length, nextIndex } = await db.queryItemsPagination(
+            "userItem",
+            { userId, maxCount, nextIndex: currIndex.slice(-10) },
+            { filter: { itemKind } }
+        );
         return {
-            userId, nextIndex, itemKind,
-            userItemList: docs.map(d => d.userItem),
-            length: String(docs.length)
+            userId, itemKind, userItemList, length,
+            nextIndex: (nextIndex === "-1") ? "-1" : (itemKind + nextIndex.padStart(10, "0")),
         };
     }
     else if (req.url.includes("GetUserLoginBonusApi")) {
@@ -273,8 +270,8 @@ async function init() {
             const body = JSON.parse(await collect(req.pipe(zlib.createInflate()), "utf8"));
             const resp = await apiHandler(ctx, req, body);
             if(debug) {
-                console.log("[chunithm] req", body);
-                console.log("[chunithm] resp", resp);
+                console.log("[chunithm] req", util.inspect(body, false, null, true));
+                console.log("[chunithm] resp", util.inspect(resp, false, null, true));
             }
             const payload = zlib.deflateSync(JSON.stringify(resp || {}));
             res.writeHead(200, { "Content-Length": payload.length }).end(payload);
